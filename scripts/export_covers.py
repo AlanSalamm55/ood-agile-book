@@ -6,7 +6,9 @@ import win32com.client
 def export_covers():
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parent
-    pptx_path = repo_root / "OOP_Agile_BookCover.pptx"
+    pptx_path = repo_root / "OOD_Agile_BookCover.pptx"
+    if not pptx_path.exists():
+        pptx_path = repo_root / "OOP_Agile_BookCover.pptx"
 
     if not pptx_path.exists():
         print(f"Error: {pptx_path} not found")
@@ -25,38 +27,45 @@ def export_covers():
         page_height = pres.PageSetup.SlideHeight
         print(f"Slide points: {page_width} x {page_height}")
 
-        # Scale factor (e.g. target height around 1600-2400 for crisp book cover)
-        scale = 3.0
-        target_w = int(page_width * scale)
-        target_h = int(page_height * scale)
+        # High resolution A4 ratio (approx 300 DPI: 2480 x 3508)
+        target_w = 2480
+        target_h = 3508
         print(f"Export target resolution: {target_w} x {target_h}")
 
         static_images = repo_root / "static" / "images"
         assets_images = repo_root / "assets" / "images"
+        root_images = repo_root / "images"
+        scratch_dir = repo_root / "scratch"
         static_images.mkdir(parents=True, exist_ok=True)
         assets_images.mkdir(parents=True, exist_ok=True)
+        root_images.mkdir(parents=True, exist_ok=True)
+        scratch_dir.mkdir(parents=True, exist_ok=True)
 
         # Slide 1 -> front cover
         slide_front = pres.Slides(1)
-        front_static_1 = static_images / "front-image.png"
-        front_static_2 = static_images / "cover-front.png"
-        front_assets = assets_images / "front-image.png"
-
-        slide_front.Export(str(front_static_1), "PNG", target_w, target_h)
-        slide_front.Export(str(front_static_2), "PNG", target_w, target_h)
-        slide_front.Export(str(front_assets), "PNG", target_w, target_h)
-        print(f"Exported Slide 1 to front-image.png and cover-front.png")
+        front_targets = [
+            static_images / "front-image.png",
+            static_images / "cover-front.png",
+            assets_images / "front-image.png",
+            root_images / "cover-front.png",
+            scratch_dir / "slide_1.png",
+        ]
+        for t in front_targets:
+            slide_front.Export(str(t), "PNG", target_w, target_h)
+        print(f"Exported Slide 1 to front-image.png and cover-front.png across static, assets, images, and scratch")
 
         # Slide last -> back cover
         slide_back = pres.Slides(slide_count)
-        back_static_1 = static_images / "back-image.png"
-        back_static_2 = static_images / "cover-back.png"
-        back_assets = assets_images / "cover-back.png"
-
-        slide_back.Export(str(back_static_1), "PNG", target_w, target_h)
-        slide_back.Export(str(back_static_2), "PNG", target_w, target_h)
-        slide_back.Export(str(back_assets), "PNG", target_w, target_h)
-        print(f"Exported Slide {slide_count} to back-image.png and cover-back.png")
+        back_targets = [
+            static_images / "back-image.png",
+            static_images / "cover-back.png",
+            assets_images / "cover-back.png",
+            root_images / "cover-back.png",
+            scratch_dir / "slide_2.png",
+        ]
+        for t in back_targets:
+            slide_back.Export(str(t), "PNG", target_w, target_h)
+        print(f"Exported Slide {slide_count} to back-image.png and cover-back.png across static, assets, images, and scratch")
 
         pres.Close()
     finally:
