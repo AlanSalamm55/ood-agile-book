@@ -11,13 +11,31 @@ The equipment office can now reserve, check out and return equipment, and it wan
 
 One developer proposes to put all of this inside `ReservationCoordinator`. Another proposes a factory, a builder, an adapter and a decorator around every class. Both proposals need a better argument. The first spreads an outside system's conventions through the reservation rules. The second adds structure before anyone has said what actually varies.
 
-This chapter asks the more useful question: **which responsibility needs a boundary, and what is the smallest design that makes that boundary clear?** For the directory the answer is one justified Adapter, and the running project gains exactly that. Along the way you will meet the creational and structural patterns through small separate examples, so that you can identify a concrete construction or compatibility problem and say which pattern, if any, answers it. You will tell Factory Method, a simple factory and Abstract Factory apart by their responsibilities, build a validated immutable request through a staged builder, translate provider records, absence and failures into a contract the application owns, and compose decorators while predicting what order and exception handling do. Most of all you will practise justifying either adopting or declining a pattern, using tests and the cost of change as evidence.
+This chapter asks the more useful question: **which responsibility needs a boundary, and what is the smallest design that makes that boundary clear?** For the directory the answer is one justified Adapter, and the running project gains exactly that. Along the way you will meet the creational and structural patterns through small separate examples, so that you can identify a concrete construction or compatibility problem and say which pattern, if any, answers it. By the end you should be able to:
+
+- tell **Factory Method**, a simple factory and **Abstract Factory** apart by their responsibilities;
+- build a validated immutable request through a staged **Builder**;
+- translate provider records, absence and failures into a contract the application owns, with an **Adapter**;
+- compose **Decorators** while predicting what order and exception handling do.
+
+Most of all you will practise justifying either adopting or declining a pattern, using tests and the cost of change as evidence.
+
+> **Reviewer note (Chapter 8 fork):** the learning outcomes were one long sentence. As a list they can be checked off, and the five pattern names stand out.
 
 The chapter belongs to Week 7 and supports LO2. The midterm remains on Weeks 1 to 6, corresponding to Chapters 2 to 7, and these new patterns are not added to that scope; assessment rules and the module descriptor stay under the module leader's control. The Week 7 readings are the Factory and Adapter chapters of Martin [7] and the creational and structural patterns in Gamma et al. [1].
 
 You will need Chapters 5 to 7 (contracts, interfaces, constructor injection, composition and meaningful tests), Java 17 and the Maven/JUnit configuration from Chapter 7. All provider records are synthetic; no real university directory, network service or personal data is used. A second Markdown file holds the complete source listings, tests, reconstruction commands, solutions and teaching notes.
 
-Sections 8.1, 8.2, 8.5 and 8.7 are the core reading, with Factory Method and Adapter as the two suggested live demonstrations. Sections 8.3 (Abstract Factory), 8.4 (Builder) and 8.6 (Decorator) are working knowledge: they give limited but required depth through runnable guided examples. Read each, run its example and, for the decorator, predict both audit histories before you run the tests. Working knowledge is not an optional extra, but it asks for understanding rather than independent implementation, and those implementations stay separate from the running application. What you must do is steps 1 to 3, 5 and 9 of the practical activity in Section 8.10. Steps 1 to 3 and 5 run on the book's project and step 9 on your team's project. This is midterm week and the midterm does not cover this chapter, so do those steps first. If you want more, there are steps 4, 6, 7 and 8 (the second-scenario comparison, the AI activity in Section 8.8 and the Builder and Decorator exercises), the questions and the transfer challenge in Section 8.11; the solutions to the Builder and Decorator exercises sit in the companion's Section 8.4 as a separate set outside the 63-invocation baseline.
+| | Sections | What you need to do |
+|---|---|---|
+| **Core** | 8.1, 8.2 (Factory Method), 8.5 (Adapter), 8.7 | Understand and implement; Factory Method and Adapter are the suggested live demonstrations |
+| **Working knowledge** (required, not optional) | 8.3 (Abstract Factory), 8.4 (Builder), 8.6 (Decorator) | Read, run the guided example, and for the decorator predict both audit histories before running the tests; no independent implementation |
+| **Required practice** | 8.10 steps 1–3 and 5 (book's project), step 9 (your team's project) | Do these first: this is midterm week and the midterm does not cover this chapter |
+| **Optional** | 8.10 steps 4, 6–8; 8.8; 8.11 | Second-scenario comparison, AI activity, Builder and Decorator exercises, questions and transfer challenge |
+
+Solutions to the Builder and Decorator exercises are in the companion file. They are kept apart from the 63 JUnit test runs that make up the project's regression baseline, so adding them never changes that count.
+
+> **Reviewer note:** this was one ~200-word paragraph mixing section numbers, step numbers, two projects and the unexplained phrase "63-invocation baseline". The table separates *what to read* from *what to do*, and the jargon is now explained in plain words.
 
 ## 8.1 When does creating an object become a design problem?
 
@@ -97,7 +115,26 @@ The diagram shows why the design is Factory Method: subclasses vary creation ins
 
 ### How is it different from a simple factory?
 
+Put the two side by side:
+
+```java
+// Factory Method: each creator subclass overrides the hook.
+public static final class PlainJob extends ExportJob {
+    @Override protected Exporter createExporter() { return value -> "TEXT: " + value; }
+}
+public static final class HtmlJob extends ExportJob {
+    @Override protected Exporter createExporter() { return value -> "<p>" + escape(value) + "</p>"; }
+}
+
+// Simple factory: one method holds the whole choice.
+public static Exporter simpleExporter(boolean html) {
+    return html ? value -> "<p>" + escape(value) + "</p>" : value -> "TEXT: " + value;
+}
+```
+
 `simpleExporter(boolean html)` contains an ordinary selection expression returning the same kinds of products. It is a simple factory, not the subclass-based Factory Method demonstrated above. A static method named `create` is not sufficient evidence of the latter pattern.
+
+> **Reviewer note:** the section argued that the two designs differ in *where the next change lands*, but only showed `ExportJob`. With both in view, the reader can see it directly: a third format means a new subclass in one design and an edited conditional in the other.
 
 Tests can show that both designs produce `TEXT: R1` or an HTML paragraph. Identical output does not make their extension mechanisms identical. One central selection function changes when a new option is added; the other introduces a concrete creator subclass. Code structure and change requirements settle the classification.
 
@@ -120,6 +157,52 @@ A simple attempt is one renderer that switches format for every part. For two ve
 ### The structure, and keeping the family consistent
 
 `ReceiptFamily` exposes `heading()` and `body()`. `PlainFamily` supplies plain implementations of both roles; `HtmlFamily` supplies HTML implementations. The receipt function obtains both products from the supplied family and combines their outputs. It does not contain a format switch.
+
+```java
+public interface ReceiptFamily {
+    Heading heading();
+    Body body();
+}
+
+public static final class HtmlFamily implements ReceiptFamily {
+    public Heading heading() { return text -> "<h1>" + escape(text) + "</h1>"; }
+    public Body body()       { return text -> "<p>" + escape(text) + "</p>"; }
+}
+
+// The client picks a family once; it cannot pick the parts separately.
+public static String receipt(ReceiptFamily family, String title, String detail) {
+    Objects.requireNonNull(family, "family");
+    return family.heading().render(title) + family.body().render(detail);
+}
+```
+
+```mermaid
+classDiagram
+    direction TB
+    class ReceiptFamily {
+        <<interface>>
+        +heading() Heading
+        +body() Body
+    }
+    class PlainFamily
+    class HtmlFamily
+    class Heading {
+        <<interface>>
+        +render(text) String
+    }
+    class Body {
+        <<interface>>
+        +render(text) String
+    }
+    ReceiptFamily <|.. PlainFamily
+    ReceiptFamily <|.. HtmlFamily
+    ReceiptFamily ..> Heading : creates
+    ReceiptFamily ..> Body : creates
+```
+
+**Figure 8.2.** Abstract Factory. One factory interface creates *two* product roles. Compare it with Figure 8.1: there, one creation method varied by subclass inside a workflow; here, a whole family of creation methods varies together, and the client receives the family as a parameter.
+
+> **Reviewer note:** Abstract Factory was the only creational pattern in the chapter with neither code nor a diagram, even though the text's main point (one factory, several matching roles) is structural and easiest to see in a figure. The figure is numbered 8.2, so the directory sequence diagram is renumbered 8.3 here, in Appendix A and in the Chapter 8 slides.
 
 The essential distinction is the related set of product roles [2]. Abstract Factory is not just a factory declared with Java's `abstract` keyword. An interface implemented by concrete family providers can serve the role. Factory Method instead focused on an overridable product-creation operation inside an inherited workflow.
 
@@ -184,7 +267,7 @@ Builder also does not perform the report or authorise access to it. Combining co
 
 The illustrative provider exposes `lookup(key)` and returns a `Person(key, kind, status)`. The application wants `find(borrowerId)` returning a domain `Borrower` when an eligible record exists. The methods differ, but the important mismatch includes data meaning and failure behaviour.
 
-Putting provider codes directly in the coordinator would make reservation logic depend on their spelling. Repeating translation in callers would risk inconsistent defaults. An object Adapter instead implements the application interface while holding the incompatible provider collaborator [3].
+Putting provider codes directly in the coordinator would make reservation logic depend on their spelling. Repeating translation in callers would risk inconsistent defaults. An object Adapter instead implements the application interface while holding the incompatible provider collaborator [3]. (Gamma et al. also describe a *class* Adapter, which inherits from the adaptee instead of holding it. Java's single inheritance and the wish to substitute a test double for the provider both favour the object form used here.)
 
 The provider interface in this chapter is a local model of an external contract, not an implemented HTTP client. Its map-backed stand-in makes all cases reproducible. Replacing that stand-in with a real client will require provider-specific integration tests later.
 
@@ -208,9 +291,37 @@ The adapter validates the returned identifier and category before interpreting i
 
 `BorrowerDirectory` belongs to the application's vocabulary. `LegacyDirectoryAdapter` implements it and delegates the lookup to `LegacyDirectoryClient`. A `Borrower` is an immutable identifier/category value. An `Optional<Borrower>` expresses a legitimate empty lookup, while an exception expresses the inability to obtain a trustworthy result. Java's `Optional` represents presence or absence, and its documentation says a variable of type `Optional` should never itself be null; it does not define which failures should become absence [4].
 
+The heart of the adapter is one method. Each line enforces one row of the translation table:
+
+```java
+@Override
+public Optional<Borrower> find(String borrowerId) {
+    // (argument check omitted)
+    LegacyDirectoryClient.Person row;
+    try {
+        row = client.lookup(borrowerId);                        // provider's method name
+    } catch (LegacyDirectoryClient.Failure failure) {
+        throw new DirectoryException("Borrower directory unavailable", failure);
+    }
+    if (row == null) return Optional.empty();                   // absent
+    if (!borrowerId.equals(row.key())) throw new DirectoryException("Mismatched borrower id");
+    BorrowerCategory category;
+    if ("S".equals(row.kind())) category = BorrowerCategory.STUDENT;
+    else if ("T".equals(row.kind())) category = BorrowerCategory.STAFF;
+    else throw new DirectoryException("Unsupported borrower category");
+    if ("N".equals(row.status())) return Optional.empty();      // inactive
+    if (!"Y".equals(row.status())) throw new DirectoryException("Unsupported borrower status");
+    return Optional.of(new Borrower(row.key(), category));      // application's own type
+}
+```
+
+Notice what is *not* here: no `catch (RuntimeException e)` and no default category. Unexpected exceptions pass straight through, as the last row of the table requires.
+
+> **Reviewer note:** Adapter is a core section, yet it had no code, only the table and a sequence diagram. Showing the method next to the table lets the student check the mapping row by row, which is exactly the review skill the chapter asks for.
+
 `DirectoryReservationService` is the new application entry point. It validates the local identifier/item/date arguments, looks up the borrower, and calls the existing coordinator only after obtaining a valid domain borrower. The caller supplies no category to this entry point. The coordinator continues to own borrowing limits, interval conflicts, storage and notification.
 
-Figure 8.2 is a **sequence diagram**. Where a class diagram shows what exists, a sequence diagram shows what happens, in time order from top to bottom. Each box at the top is a participant, and the vertical line below it is its lifeline. A solid arrow is a call and a dashed arrow is a return. A frame labelled `alt`, split by `else`, shows alternative paths, of which exactly one happens in a given run. A note spans the participants it concerns. Read it as a story: the service asks the adapter, the adapter asks the provider, and what follows depends on what the provider returns.
+Figure 8.3 is a **sequence diagram**. Where a class diagram shows what exists, a sequence diagram shows what happens, in time order from top to bottom. Each box at the top is a participant, and the vertical line below it is its lifeline. A solid arrow is a call and a dashed arrow is a return. A frame labelled `alt`, split by `else`, shows alternative paths, of which exactly one happens in a given run. A note spans the participants it concerns. Read it as a story: the service asks the adapter, the adapter asks the provider, and what follows depends on what the provider returns.
 
 ```mermaid
 sequenceDiagram
@@ -236,11 +347,13 @@ sequenceDiagram
     end
 ```
 
-**Figure 8.2.** The directory lookup before a reservation. The sequence highlights the point before which reservation state must remain untouched. Malformed provider data follows the same no-mutation boundary as a provider failure, although its exception describes a different cause, and the diagram omits it to stay readable.
+**Figure 8.3.** The directory lookup before a reservation. The sequence highlights the point before which reservation state must remain untouched. Malformed provider data follows the same no-mutation boundary as a provider failure, although its exception describes a different cause, and the diagram omits it to stay readable.
 
 ### A data-backed collaborator, and the same questions for a model
 
-**The directory is the book's data-backed collaborator.** The module is about software built around AI and data components, and this book takes the data-component route: the equipment directory is the component that stands outside the application and answers from its own data. Chapter 1 promised it, Chapter 6 previewed its contract, Chapter 7 showed three doubles for it, this chapter builds the adapter, Chapter 10 places it in the application structure, and Chapter 13 adds what a real provider needs: timeouts and an explicit fallback-or-failure policy. Here the provider is a synthetic, in-process stand-in, so there is no transport, timeout or storage to fail.
+> **Where the directory fits in the book.** The module is about software built around AI and data components, and the equipment directory is this book's data component. Chapter 6 previewed its contract, Chapter 7 showed three test doubles for it, this chapter builds the adapter, Chapter 10 places it in the application structure, and Chapter 13 adds timeouts and a fallback-or-failure policy. Here the provider is a synthetic, in-process stand-in, so there is no transport, timeout or storage to fail.
+
+> **Reviewer note:** the chapter-by-chapter roadmap interrupted the Adapter explanation. It is now a short aside, so the reader can skip it and go straight to the general point below.
 
 The directory is the book's first collaborator whose answers come from outside the application. It can be absent, wrong or unavailable, and its data uses its own vocabulary. Any component that returns data or predictions is in the same position, including one that calls a trained model. The questions are the same: what does an empty answer mean, what counts as a failure, which outputs will you refuse to trust, and how will a test substitute the component? If your team's domain is an ML model-serving tool, your adapter boundary sits between your service and the model runtime. Map its label codes to your own types, treat a missing prediction and a timeout as different outcomes, and reject values outside the documented range.
 
@@ -272,12 +385,35 @@ A Decorator implements the same component interface as its wrapped delegate and 
 
 The exercise defines a separate `Sender.send(String)` interface. `AuditedSender` records an attempt, delegates and records either normal completion or a declared failure. `RetryOnceSender` retries once only for `DeliveryFailure`. Both accept another `Sender`.
 
+```java
+public static final class RetryOnceSender implements Sender {
+    private final Sender delegate;                     // the wrapped component
+    public RetryOnceSender(Sender delegate) { this.delegate = Objects.requireNonNull(delegate, "delegate"); }
+    public void send(String message) {                 // same interface as the delegate
+        try {
+            delegate.send(message);
+        } catch (DeliveryFailure failure) {            // only the declared failure
+            delegate.send(message);                    // one retry; a second failure propagates
+        }
+    }
+}
+```
+
+Because every decorator is itself a `Sender`, decorators nest, and the nesting order is written in the constructor calls:
+
+```java
+Sender auditOutside = new AuditedSender(new RetryOnceSender(real), events);
+Sender retryOutside = new RetryOnceSender(new AuditedSender(real, events));
+```
+
 For a delegate that fails once and then succeeds, composition order changes the observations:
 
 | Composition | Recorded events | Delegate calls |
 |---|---|---|
-| Audit outside retry | `attempt`, `sent` | Two |
-| Retry outside audit | `attempt`, `failed`, `attempt`, `sent` | Two |
+| Audit outside retry (`auditOutside`) | `attempt`, `sent` | Two |
+| Retry outside audit (`retryOutside`) | `attempt`, `failed`, `attempt`, `sent` | Two |
+
+> **Reviewer note:** the order table was the key idea of the section, but the reader had to imagine what "audit outside retry" looks like in code. The two one-line compositions make the outer/inner wording concrete, and the `RetryOnceSender` listing shows the three things that make it a Decorator: it holds a `Sender`, it *is* a `Sender`, and it adds behaviour around the delegated call.
 
 In the first composition, audit observes one logical call whose internal retry succeeds. In the second, each attempt passes through audit separately. Neither event sequence is universally correct. Decide whether the audit requirement concerns operations or individual attempts.
 
@@ -406,6 +542,10 @@ If you want more, propose a changed provider code for staff, or a second provide
 
 5. A directory adapter catches `RuntimeException` and returns an empty result. Describe at least two different failures this hides and the resulting problem for the application.
 6. A team changes `Audit(Retry(sender))` to `Retry(Audit(sender))` because both satisfy `Sender`. Predict the audit histories for one failure followed by success and explain the requirement that selects between them.
+
+Model answers to questions 1–6 are in the companion file, Section 10. Write your own answer first.
+
+> **Reviewer note:** the chapter gave no hint that answers exist. Pointing to them (after an attempt) supports self-study without giving the answer away.
 
 ### Transfer challenge
 

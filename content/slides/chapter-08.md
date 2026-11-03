@@ -651,7 +651,7 @@ return coordinator.reserve(borrower.id(), itemId, start, days, borrower.category
 
 ---
 
-## Figure 8.2: An Active Borrower
+## Figure 8.3: An Active Borrower
 
 <!--svg:ch08-seq-ok-->
 <div>
@@ -690,7 +690,7 @@ return coordinator.reserve(borrower.id(), itemId, start, days, borrower.category
 
 ---
 
-## Figure 8.2: Missing, Inactive, or Failed
+## Figure 8.3: Missing, Inactive, or Failed
 
 <!--svg:ch08-seq-fail-->
 <div>

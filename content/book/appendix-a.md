@@ -383,7 +383,7 @@ sequenceDiagram
 
 **Figure A.2.** A sequence-diagram notation example. The caller asks the rules object one question and receives one of two answers. The note says what does *not* happen.
 
-Do not read a sequence diagram as a complete specification. It shows the scenario its author chose, and a path that is missing is not a claim that the path cannot happen (Figure 8.2 leaves out malformed provider data to stay readable). The vertical order is time order. It is not the order of the classes in the source code.
+Do not read a sequence diagram as a complete specification. It shows the scenario its author chose, and a path that is missing is not a claim that the path cannot happen (Figure 8.3 leaves out malformed provider data to stay readable). The vertical order is time order. It is not the order of the classes in the source code.
 
 ### State diagrams
 
